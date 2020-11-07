@@ -22,6 +22,8 @@ import os
 import datetime
 import re
 
+import matplotlib.pyplot as plt
+
 # Creating topic class to represent its structure
 class Topic:
     def __init__(self, title, desc, narr):
@@ -178,17 +180,34 @@ def clustering(D, args=None):
         doc_topics[doc] = [value for value in q_rels_train_dict.keys() if doc in q_rels_train_dict[value]]
 
     X = vectorizer.fit_transform(collection)
-    true_k = 4  # number of clusters
-    model = KMeans(n_clusters=true_k, init='k-means++', max_iter=300, n_init=10)
-    model.fit(X)
-    labels = model.labels_
 
-    docs_cl = pd.DataFrame(list(zip(D.keys(),doc_topics.values(), labels)), columns=['docId','topicId', 'cluster'])
+    Sum_of_squared_distances = []
+    K = range(1,15)
+    for k in K:
+        km = KMeans(n_clusters=k)
+        km = km.fit(X)
+        Sum_of_squared_distances.append(km.inertia_)
 
-    print(docs_cl.loc[docs_cl['cluster'] == 0])
-    print(docs_cl.loc[docs_cl['cluster'] == 1])
-    print(docs_cl.loc[docs_cl['cluster']==2])
-    print(docs_cl.loc[docs_cl['cluster'] == 3])
+    plt.plot(K, Sum_of_squared_distances, 'bx-')
+    plt.xlabel('k')
+    plt.ylabel('Sum_of_squared_distances')
+    plt.title('Elbow Method For Optimal k')
+    plt.show()
+
+    plt.savefig("plot.png")
+    plt.clf()
+
+    # true_k = 4  # number of clusters
+    # model = KMeans(n_clusters=true_k, init='k-means++', max_iter=300, n_init=10)
+    # model.fit(X)
+    # labels = model.labels_
+
+    # docs_cl = pd.DataFrame(list(zip(D.keys(),doc_topics.values(), labels)), columns=['docId','topicId', 'cluster'])
+
+    # print(docs_cl.loc[docs_cl['cluster'] == 0])
+    # print(docs_cl.loc[docs_cl['cluster'] == 1])
+    # print(docs_cl.loc[docs_cl['cluster']==2])
+    # print(docs_cl.loc[docs_cl['cluster'] == 3])
 
     exit(0)
 
