@@ -16,13 +16,18 @@ from sklearn.feature_extraction import text
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.cluster import AgglomerativeClustering
 import matplotlib.pyplot as plt
-from sklearn.cluster import KMeans
+from sklearn.cluster import KMeans, DBSCAN
 import xml.etree.ElementTree as ET
 import os
 import datetime
 import re
+import math
+import numpy as np
 
 import matplotlib.pyplot as plt
+from sklearn.metrics import silhouette_score
+from sklearn.decomposition import PCA
+from sklearn.preprocessing import StandardScaler
 
 # Creating topic class to represent its structure
 class Topic:
@@ -91,7 +96,7 @@ def preprocessing(content):
     ps = PorterStemmer()
     preprocessed_tokens = []
     for t in tokens:
-        if t not in stop_words: # and len(t) > 3:
+        if t not in stop_words and not t.isnumeric(): # and len(t) > 3:
             preprocessed_tokens.append(ps.stem(t))
     return preprocessed_tokens
 
@@ -164,38 +169,110 @@ def clustering(D, args=None):
 
     # k means clustering
 
-    vectorizer = TfidfVectorizer()
+    vectorizer = TfidfVectorizer(use_idf = False, stop_words='english')
     collection = []
     doc_topics =  {}
     for doc in D.keys():
         doc_topics_list = []
-        print('docid')
-        print(doc)
         doc_sentences = ""
         for token in D[doc]:
             doc_sentences += " " + token
         collection.append(doc_sentences)
-        print(doc_sentences)
-        print('next')
         doc_topics[doc] = [value for value in q_rels_train_dict.keys() if doc in q_rels_train_dict[value]]
 
-    X = vectorizer.fit_transform(collection)
+    X = vectorizer.fit_transform(collection).toarray()
+
+    #NAO SEI SE DEVEMOS USAR---------------
+    standard = StandardScaler().fit_transform(X) #Standardizes features by removing the mean and scaling to unit variance
+
+    pca = PCA(n_components=len(topics_ids)).fit(X)
+
+    #CREATE GRAPH TO SEE OPTIMAL N_COMPONENTS-----------
+    
+    # plt.rcParams["figure.figsize"] = (192,6)
+
+    # fig, ax = plt.subplots()
+    # xi = np.arange(1, 194, step=1)
+    # y = np.cumsum(pca.explained_variance_ratio_)
+
+    # plt.ylim(0.0,1.1)
+    # plt.plot(xi, y, marker='o', linestyle='--', color='b')
+
+    # plt.xlabel('Number of Components')
+    # plt.xticks(np.arange(0, 193, step=1)) #change from 0-based array index to 1-based human-readable label
+    # plt.ylabel('Cumulative variance (%)')
+    # plt.title('The number of components needed to explain variance')
+
+    # plt.axhline(y=0.95, color='r', linestyle='-')
+    # plt.text(0.5, 0.85, '95% cut-off threshold', color = 'red', fontsize=16)
+
+    # ax.grid(axis='x')
+    # plt.show()
+    # plt.savefig("plot.png")
+    # plt.clf()
+
+    pca_2d = pca.transform(X)
+
+    # PCA GRAPH----------------
+
+    # plt.figure('Reference Plot')
+    # plt.scatter(pca_2d[:, 0], pca_2d[:, 1], c='green')
+
+    # kmeans = KMeans(n_clusters=4, init='k-means++', max_iter=100, n_init=1).fit(pca_2d)
+    # plt.scatter(kmeans.cluster_centers_[:, 0], kmeans.cluster_centers_[:, 1], s=100, c='red')
+    # plt.show()
+
+    # plt.savefig("plot.png")
 
     Sum_of_squared_distances = []
-    K = range(1,15)
+    sil = []
+    K = range(2,30)
     for k in K:
-        km = KMeans(n_clusters=k)
-        km = km.fit(X)
+        print(k)
+        km = KMeans(n_clusters=k, init='k-means++', max_iter=300, n_init=10).fit(pca_2d)
         Sum_of_squared_distances.append(km.inertia_)
-
-    plt.plot(K, Sum_of_squared_distances, 'bx-')
+        labels = km.labels_
+        sil_score = silhouette_score(pca_2d, labels, metric = 'cosine')
+        sil.append(sil_score)
+    
+    plt.plot(K, sil, 'bx-')
     plt.xlabel('k')
-    plt.ylabel('Sum_of_squared_distances')
+    plt.ylabel('Silhouette Score')
     plt.title('Elbow Method For Optimal k')
     plt.show()
 
     plt.savefig("plot.png")
     plt.clf()
+    
+    optimal_k = sil.index(max(sil)) + 2
+    print("\nhighestttttttt\n" + str(optimal_k))
+
+    # sil = []
+    # range_eps = [0.1, 0.2, 0.3, 0.4, 0.5]
+    # for i in range_eps:
+    #     db = DBSCAN(eps=i, min_samples=5).fit(X)
+    #     sil.append(silhouette_score(X, db.labels_))
+    
+    # print(sil)
+    # eps = sil.index(max(sil))
+    # print("\nmaximum epssssssssssssssssss\n")
+    # print(eps)
+
+
+    kmeans2 = KMeans(n_clusters=optimal_k, init='k-means++', max_iter=300, n_init=10).fit(X)
+    print(kmeans2)
+    labels = kmeans2.labels_
+
+    docs_cl = pd.DataFrame(list(zip(D.keys(),doc_topics.values(), labels)), columns=['docId','topicId', 'cluster'])
+
+    print("\nTop terms per cluster:\n")
+    order_centroids = kmeans2.cluster_centers_.argsort()[:, ::-1]
+    terms = vectorizer.get_feature_names()
+    for i in range(optimal_k):
+        print("Cluster %d:" % i),
+        for ind in order_centroids[i, :10]:
+            print(' %s' % terms[ind])
+        print(docs_cl.loc[docs_cl['cluster'] == i])
 
     # true_k = 4  # number of clusters
     # model = KMeans(n_clusters=true_k, init='k-means++', max_iter=300, n_init=10)
@@ -292,23 +369,21 @@ def undirected_page_rank(q,D,p,sim,θ,args):
 
 
 stop_words_flag = 'True'
-D_PATH = "rcv1_rel/"
+D_PATH = "rcv1_rel5/"
 Q_PATH = "topics.txt"
 Q_TOPICS_PATH = "topics.txt"
 Q_RELS_TEST = "qrels.train.txt"
 DATE_TRAIN_UNTIL = datetime.date(1996, 9, 30)
-topics_ids = list(range(1, 5))
+topics_ids = list(range(1, 6))
 q_topics_dict = read_topics_file()   # dictionary with topic id: topic(title, desc, narrative) ,for each topic
 q_rels_train_dict = red_qrels_file()  # dictionary with topic id: relevant document id ,for each topic
 
-
-rel_docs = list(q_rels_train_dict.values())
-print(rel_docs)
+# rel_docs = list(q_rels_train_dict.values())
+# print(rel_docs)
 #folders = os.listdir("rcv1_train/")
 #current = os.getcwd()
 
 train_xmls, test_xmls = read_xml_files()
-print(train_xmls)
 clustering(train_xmls)
 
 
