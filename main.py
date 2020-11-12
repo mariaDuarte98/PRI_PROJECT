@@ -169,7 +169,7 @@ def clustering(D, args=None):
 
     # k means clustering
 
-    vectorizer = TfidfVectorizer(use_idf = False, stop_words='english')
+    vectorizer = TfidfVectorizer()
     collection = []
     doc_topics =  {}
     for doc in D.keys():
@@ -185,31 +185,36 @@ def clustering(D, args=None):
     #NAO SEI SE DEVEMOS USAR---------------
     standard = StandardScaler().fit_transform(X) #Standardizes features by removing the mean and scaling to unit variance
 
-    pca = PCA(n_components=len(topics_ids)).fit(X)
+    pca = PCA().fit(X)
 
     #CREATE GRAPH TO SEE OPTIMAL N_COMPONENTS-----------
     
-    # plt.rcParams["figure.figsize"] = (192,6)
+    # plt.rcParams["figure.figsize"] = (len(D.keys()),6)
 
     # fig, ax = plt.subplots()
-    # xi = np.arange(1, 194, step=1)
-    # y = np.cumsum(pca.explained_variance_ratio_)
+    # xi = np.arange(1, len(D.keys()) +1, step=1)
+    y = np.cumsum(pca.explained_variance_ratio_)
 
     # plt.ylim(0.0,1.1)
     # plt.plot(xi, y, marker='o', linestyle='--', color='b')
 
     # plt.xlabel('Number of Components')
-    # plt.xticks(np.arange(0, 193, step=1)) #change from 0-based array index to 1-based human-readable label
+    # plt.xticks(np.arange(0, len(D.keys()) - 1, step=1)) #change from 0-based array index to 1-based human-readable label
     # plt.ylabel('Cumulative variance (%)')
     # plt.title('The number of components needed to explain variance')
 
     # plt.axhline(y=0.95, color='r', linestyle='-')
     # plt.text(0.5, 0.85, '95% cut-off threshold', color = 'red', fontsize=16)
 
+    idx = np.argwhere(np.diff(np.sign(0.95 - y))).flatten()
+    
+    print(int(idx))
+
     # ax.grid(axis='x')
-    # plt.show()
     # plt.savefig("plot.png")
     # plt.clf()
+
+    pca = PCA(n_components=int(idx)).fit(X)
 
     pca_2d = pca.transform(X)
 
@@ -226,7 +231,7 @@ def clustering(D, args=None):
 
     Sum_of_squared_distances = []
     sil = []
-    K = range(2,30)
+    K = range(2,len(D.keys()) - 3)
     for k in K:
         print(k)
         km = KMeans(n_clusters=k, init='k-means++', max_iter=300, n_init=10).fit(pca_2d)
@@ -250,14 +255,13 @@ def clustering(D, args=None):
     # sil = []
     # range_eps = [0.1, 0.2, 0.3, 0.4, 0.5]
     # for i in range_eps:
-    #     db = DBSCAN(eps=i, min_samples=5).fit(X)
+    #     db = DBSCAN(eps=i, min_samples=5).fit(pca_2d)
     #     sil.append(silhouette_score(X, db.labels_))
     
     # print(sil)
     # eps = sil.index(max(sil))
     # print("\nmaximum epssssssssssssssssss\n")
     # print(eps)
-
 
     kmeans2 = KMeans(n_clusters=optimal_k, init='k-means++', max_iter=300, n_init=10).fit(X)
     print(kmeans2)
@@ -369,12 +373,12 @@ def undirected_page_rank(q,D,p,sim,θ,args):
 
 
 stop_words_flag = 'True'
-D_PATH = "rcv1_rel5/"
+D_PATH = "rcv1_rel20/"
 Q_PATH = "topics.txt"
 Q_TOPICS_PATH = "topics.txt"
 Q_RELS_TEST = "qrels.train.txt"
 DATE_TRAIN_UNTIL = datetime.date(1996, 9, 30)
-topics_ids = list(range(1, 6))
+topics_ids = list(range(1, 21))
 q_topics_dict = read_topics_file()   # dictionary with topic id: topic(title, desc, narrative) ,for each topic
 q_rels_train_dict = red_qrels_file()  # dictionary with topic id: relevant document id ,for each topic
 

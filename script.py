@@ -15,14 +15,14 @@ for folder in folders:
             name = fich.replace("newsML.xml","")
             print('nameeeeeeee')
             print(name)
-            for i in range(5):
-                if  not os.path.isdir("./rcv1_rel5/") and name in rel_docs[i]:
-                    os.mkdir("rcv1_rel5/")
+            for i in range(20):
+                if  not os.path.isdir("./rcv1_rel20/") and name in rel_docs[i]:
+                    os.mkdir("rcv1_rel20/")
                     print("\nnotexists" + name + "\n")
-                    shutil.copy("rcv1_train/" + folder + "/" + fich, "rcv1_rel5/")
-                elif os.path.isdir("./rcv1_rel5/")  and name in rel_docs[i]:
+                    shutil.copy("rcv1_train/" + folder + "/" + fich, "rcv1_rel20/")
+                elif os.path.isdir("./rcv1_rel20/")  and name in rel_docs[i]:
                     print("\n" + name + "\n")
-                    shutil.copy("rcv1_train/" + folder + "/" + fich, "rcv1_rel5/")
+                    shutil.copy("rcv1_train/" + folder + "/" + fich, "rcv1_rel20/")
                 
       
 
