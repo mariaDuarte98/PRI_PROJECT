@@ -1,12 +1,12 @@
 from main import read_xml_files, red_qrels_file, read_topics_file
 from sklearn.naive_bayes import GaussianNB
 from sklearn.feature_extraction.text import TfidfVectorizer
-import pandas
-import numpy
+from sklearn.ensemble import RandomForestClassifier
 
 vectorizer = TfidfVectorizer()
 
-def training(q, Dtrain, Rtrain, args=None):
+
+def training(q, Dtrain, Rtrain, args='NaiveBayes'):
     collection = []
     doc_relevance = []
     for doc in Dtrain.keys():
@@ -20,9 +20,14 @@ def training(q, Dtrain, Rtrain, args=None):
             doc_relevance.append(0)
 
     X = vectorizer.fit_transform(collection).toarray()
-    gnb = GaussianNB()
-    q_classification_model = gnb.fit(X, doc_relevance)
-    return q_classification_model
+
+    if args == 'NaiveBayes':
+        gnb = GaussianNB()
+        return gnb.fit(X, doc_relevance)
+
+    elif args == 'RandomForest':
+        clf = RandomForestClassifier()
+        return clf.fit(X, doc_relevance)
 
 
 def classify(d, q, M, args=None):
@@ -41,6 +46,8 @@ q_topics_dict = read_topics_file()  # dictionary with topic id: topic(title, des
 q_rels_train_dict = red_qrels_file()  # dictionary with topic id: relevant document id ,for each topic
 train_xmls, test_xmls = read_xml_files()
 for q in q_topics_dict.keys():
-    classification_model = training(q, train_xmls, q_rels_train_dict)
+    classification_model = training(q, train_xmls, q_rels_train_dict, 'NaiveBayes')
     for test_file in test_xmls.keys():
-        print(classify(test_xmls[test_file], q, classification_model))
+        result = classify(test_xmls[test_file], q, classification_model)
+        if result != [0]:
+            print("Topic: " + q + " File: " + test_file)
