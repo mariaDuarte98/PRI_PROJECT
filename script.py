@@ -5,7 +5,7 @@ rel_docs = [['39496', '46547', '46974', '62325', '63261', '82330', '82454'], ['3
 
 folders = os.listdir("rcv1_train/")
 current = os.getcwd() 
-topics = 20
+topics = 5
 
 for folder in folders:
     print("hvfgbvdsfgnhg")
@@ -17,16 +17,12 @@ for folder in folders:
             print('nameeeeeeee')
             print(name)
             for i in range(topics):
-                if  not os.path.isdir("./rcv1_rel" + str(topics) + "/") and name in rel_docs[i]:
-                    os.mkdir("rcv1_rel" + str(topics) + "/")
+                if not os.path.isdir("./rcv1"):
+                    os.mkdir("rcv1")
+                if  not os.path.isdir("./rcv1/rcv1_rel" + str(topics) + "/") and name in rel_docs[i]:
+                    os.mkdir("rcv1/rcv1_rel" + str(topics) + "/")
                     print("\nnotexists" + name + "\n")
-                    shutil.copy("rcv1_train/" + folder + "/" + fich, "rcv1_rel" +  + str(topics) + "/")
-                elif os.path.isdir("./rcv1_rel"  + str(topics) + "/")  and name in rel_docs[i]:
+                    shutil.copy("rcv1_train/" + folder + "/" + fich, "rcv1/rcv1_rel" +  str(topics) + "/")
+                elif os.path.isdir("./rcv1/rcv1_rel"  + str(topics) + "/")  and name in rel_docs[i]:
                     print("\n" + name + "\n")
-                    shutil.copy("rcv1_train/" + folder + "/" + fich, "rcv1_rel"  + str(topics) + "/")
-                
-      
-
-
-                
-                
+                    shutil.copy("rcv1_train/" + folder + "/" + fich, "rcv1/rcv1_rel"  + str(topics) + "/")
