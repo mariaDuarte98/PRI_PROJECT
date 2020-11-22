@@ -19,6 +19,7 @@ import datetime
 import re
 from sklearn.feature_extraction import text
 
+
 # Creating topic class to represent its structure
 class Topic:
     def __init__(self, title, desc, narr):
@@ -120,10 +121,11 @@ def read_xml_files(D_PATH):
             for content in xml_file.getroot().iter('text'):
                 for paragraph in content:
                     document += ' ' + paragraph.text
+            key = xml_file.getroot().attrib.get('itemid')
             if date <= DATE_TRAIN_UNTIL:
-                train_xmls[xml_file.getroot().attrib.get('itemid')] = preprocessing(document)
+                train_xmls[key] = preprocessing(document)
             else:
-                test_xmls[xml_file.getroot().attrib.get('itemid')] = preprocessing(document)
+                test_xmls[key] = preprocessing(document)
 
     return train_xmls, test_xmls
 
