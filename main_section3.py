@@ -304,7 +304,7 @@ Q_RELS_TEST = "qrels.test.txt"
 DATE_TRAIN_UNTIL = datetime.date(1996, 9, 30)
 topics_ids = list(range(1, 11))
 q_topics_dict = read_topics_file()  # dictionary with topic id: topic(title, desc, narrative) ,for each topic
-q_rels_test_dict = red_qrels_file()  # dictionary with topic id: relevant document id ,for each topic
+q_rels_test_dict = red_qrels_file(Q_RELS_TEST)  # dictionary with topic id: relevant document id ,for each topic
 
 
 print('Start reading collection...')
