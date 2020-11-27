@@ -4,6 +4,7 @@ from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.ensemble import RandomForestClassifier
 from sklearn import metrics
 from sklearn.decomposition import PCA
+from sklearn.model_selection import RandomizedSearchCV
 
 vectorizer = TfidfVectorizer()
 pca_model = PCA(n_components=20)
@@ -32,6 +33,28 @@ def training(q, Dtrain, Rtrain, args='NaiveBayes'):
 
     elif args == 'RandomForest':
         clf = RandomForestClassifier() # entropy also ; numer of tree default is 100, change parameters for the report
+        # # Number of trees in random forest
+        # n_estimators = [int(x) for x in np.linspace(start = 200, stop = 2000, num = 10)]
+        # # Number of features to consider at every split
+        # max_features = ['auto', 'sqrt']
+        # # Maximum number of levels in tree
+        # max_depth = [int(x) for x in np.linspace(10, 110, num = 11)]
+        # max_depth.append(None)
+        # # Minimum number of samples required to split a node
+        # min_samples_split = [2, 5, 10]
+        # # Minimum number of samples required at each leaf node
+        # min_samples_leaf = [1, 2, 4]
+        # # Method of selecting samples for training each tree
+        # bootstrap = [True, False]
+        # # Create the random grid
+        # random_grid = {'n_estimators': n_estimators,
+        #        'max_features': max_features,
+        #        'max_depth': max_depth,
+        #        'min_samples_split': min_samples_split,
+        #        'min_samples_leaf': min_samples_leaf,
+        #        'bootstrap': bootstrap}
+        # random = RandomizedSearchCV(estimator = clf, param_distributions = random_grid, n_iter = 100, cv = 3, verbose=2, random_state=42, n_jobs = -1)
+        # return random.fit(X, doc_relevance)
         return clf.fit(X, doc_relevance)
 
 
@@ -40,12 +63,8 @@ def classify(d, q, M, args=None):
     for word in d:
         s += word + " "
     x_test = vectorizer.transform([s]).toarray()
-    print(len(x_test))
-    print(x_test)
    # pca = pca_model.fit(x_test)
     x_test = pca_model.transform(x_test)
-    print(len(x_test))
-    print(x_test)
     if args == 'prob':
         return M.predict_proba(x_test) # probabilistic output
     else:
@@ -61,48 +80,43 @@ def rank_docs(D,q,M,p):
 
     return sorted(prob_docs, key=prob_docs.get, reverse=True)[:p]
 
-def evaluate(Qtest, Dtest, Rtest, M, args=None):
+def evaluate(Qtest, Dtest, Rtest, M, q, args=None):
 
     # evaluate with relevance feedback
     labels_pred, labels_test, accuracies, error_rate = [], [], [], []
-    for i in range(0,1): #just to test with current dataset that only considers 10 topics
-        topic = list(Qtest.keys())[i]
-        for doc in Dtest.keys():
-            label = classify(Dtest[doc], topic, M)[0]
-            labels_pred.append(label)
-            if doc in Rtest[topic]:
-                labels_test.append(1)
-            else:
-                labels_test.append(0)
-        accuracy = metrics.accuracy_score(labels_test, labels_pred)
-        accuracies.append(accuracy)
-        error_rate.append(1 - accuracy)
+    for doc in Dtest.keys():
+        label = classify(Dtest[doc], q, M)[0]
+        labels_pred.append(label)
+        if doc in Rtest[q]:
+            labels_test.append(1)
+        else:
+            labels_test.append(0)
+    accuracy = metrics.accuracy_score(labels_test, labels_pred)
+    accuracies.append(accuracy)
+    error_rate.append(1 - accuracy)
 
     return accuracies, error_rate # accuracy and error rate for all topics
 
 
 
-D_PATH = 'rcv1/rcv1_rel10/'
+D_PATH = 'rcv1_supervised/rcv1_rel10/'
 q_topics_dict = read_topics_file()  # dictionary with topic id: topic(title, desc, narrative) ,for each topic
 q_rels_train_dict = red_qrels_file()  # dictionary with topic id: relevant document id ,for each topic
 q_rels_test_dict = red_qrels_file("qrels.test.txt")  # dictionary with topic id: relevant document id ,for each topic
 train_xmls, test_xmls = read_xml_files(D_PATH)
-#for q in q_topics_dict.keys():
-q = 'R101'
-#print(len(test_xmls.keys()))
-classification_model = training(q, train_xmls, q_rels_train_dict)
-#print('hedefef')
 
-#print(rank_docs(test_xmls,q,classification_model,10))
+for q in ['R102']: # q_rels_test_dict
+    print(len(test_xmls.keys()))
+    classification_model = training(q, train_xmls, q_rels_train_dict, 'RandomForest')
+    # print(classification_model.best_params_)
 
-#result = classify(test_xmls, q, classification_model,'prob')
-#print('hedefef')
-#print(result)
+    #print(rank_docs(test_xmls,q,classification_model,10))
 
+    # result = classify(test_xmls, q, classification_model,'prob')
+    #print('hedefef')
+    #print(result)
 
-
-
-print(evaluate(q_topics_dict, test_xmls, q_rels_test_dict, classification_model, args=None))
+    print(evaluate(q_topics_dict, test_xmls, q_rels_test_dict, classification_model, q, args=None))
 
 '''
 print(classification_model)
