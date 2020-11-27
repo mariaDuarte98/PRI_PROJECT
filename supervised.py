@@ -6,7 +6,7 @@ from sklearn import metrics
 from sklearn.decomposition import PCA
 
 vectorizer = TfidfVectorizer()
-pca_model = PCA()
+pca_model = PCA(n_components=20)
 
 
 def training(q, Dtrain, Rtrain, args='NaiveBayes'):
@@ -23,15 +23,15 @@ def training(q, Dtrain, Rtrain, args='NaiveBayes'):
             doc_relevance.append(0)
 
     X = vectorizer.fit_transform(collection).toarray()
-    pca = pca_model.fit(X)
-    X = pca.transform(X)
+    X = pca_model.fit_transform(X)
+    #X = pca.transform(X)
     print(X)
     if args == 'NaiveBayes':
         gnb = GaussianNB()
         return gnb.fit(X, doc_relevance)
 
     elif args == 'RandomForest':
-        clf = RandomForestClassifier(criterion='gini', n_estimators=50) # entropy also ; numer of tree default is 100, change parameters for the report
+        clf = RandomForestClassifier() # entropy also ; numer of tree default is 100, change parameters for the report
         return clf.fit(X, doc_relevance)
 
 
@@ -40,10 +40,10 @@ def classify(d, q, M, args=None):
     for word in d:
         s += word + " "
     x_test = vectorizer.transform([s]).toarray()
-    print(len(x_test[0]))
+    print(len(x_test))
     print(x_test)
-    pca = pca_model.fit(x_test[0])
-    x_test = pca.transform(x_test[0])
+   # pca = pca_model.fit(x_test)
+    x_test = pca_model.transform(x_test)
     print(len(x_test))
     print(x_test)
     if args == 'prob':
@@ -90,7 +90,7 @@ train_xmls, test_xmls = read_xml_files(D_PATH)
 #for q in q_topics_dict.keys():
 q = 'R101'
 #print(len(test_xmls.keys()))
-classification_model = training(q, train_xmls, q_rels_train_dict, 'NaiveBayes')
+classification_model = training(q, train_xmls, q_rels_train_dict)
 #print('hedefef')
 
 #print(rank_docs(test_xmls,q,classification_model,10))
