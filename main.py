@@ -45,29 +45,19 @@ def red_qrels_file(Q_RELS_TEST="qrels.train.txt"):
 # Function that processes topics file
 def read_topics_file():
     topics_dic = {}
-    with open(Q_TOPICS_PATH, 'r') as file:
-        for line in file:
-            if '<num>' in line:
-                num = (line.replace('<num> Number: ', '')).replace('\n', '')
-                num = num.replace(" ", "")
-            elif '<title>' in line:
-                title = line.replace('<title>', '')
-            elif '<desc>' in line:
-                desc = ""
-                line = file.readline()
-                while '<narr>' not in line:
-                    if len(line) > 1:
-                        desc += " " + line
-                    line = file.readline()
-                narr = ""
-                line = file.readline()
-                while '</top>' not in line:
-                    if len(line) > 1:
-                        narr += " " + line
-                    line = file.readline()
-             #   if delete_irrel == 'True':
-              #      narr = update_narrative(narr)
-                topics_dic[num] = Topic(title, desc, narr)
+    f = open(Q_TOPICS_PATH, "r")
+    content = f.read()
+    content = content.replace("\n", " ")
+
+    for topic in content.split("</top>")[:-1]:
+        topic = re.split(r'<title>|<desc>|<narr>',topic)
+        num = topic[0].replace("<top>  <num> Number: ", "").replace(" ", "")
+        title = preprocessing(topic[1])
+        desc = preprocessing(topic[2].replace("Description: ", ""))
+        narr = topic[3].replace("Narrative: ", "")
+        narr = preprocessing(narr.replace(" </top>", ""))
+
+        topics_dic[num] = Topic(title, desc, narr)
     return topics_dic
 
 
