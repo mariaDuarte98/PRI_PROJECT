@@ -1,3 +1,5 @@
+import threading
+
 from main import read_xml_files, red_qrels_file, read_topics_file
 from sklearn.naive_bayes import GaussianNB
 from sklearn.feature_extraction.text import TfidfVectorizer
@@ -7,7 +9,8 @@ from sklearn.decomposition import PCA
 from sklearn.model_selection import RandomizedSearchCV
 
 vectorizer = TfidfVectorizer()
-pca_model = PCA(n_components=20)
+pca_model = PCA()
+lock = threading.Lock()
 
 
 def training(q, Dtrain, Rtrain, args='NaiveBayes'):
@@ -26,7 +29,7 @@ def training(q, Dtrain, Rtrain, args='NaiveBayes'):
     X = vectorizer.fit_transform(collection).toarray()
     X = pca_model.fit_transform(X)
     #X = pca.transform(X)
-    print(X)
+    #print(X)
     if args == 'NaiveBayes':
         gnb = GaussianNB()
         return gnb.fit(X, doc_relevance)
@@ -97,27 +100,39 @@ def evaluate(Qtest, Dtest, Rtest, M, q, args=None):
 
     return accuracies, error_rate # accuracy and error rate for all topics
 
+def worker(q):
+    classification_model = training(q, train_xmls, q_rels_train_dict, 'RandomForest')
+    # print(classification_model.best_params_)
+
+    # print(rank_docs(test_xmls,q,classification_model,10))
+
+    # result = classify(test_xmls, q, classification_model,'prob')
+    # print('hedefef')
+    # print(result)
+
+    result = evaluate(q_topics_dict, test_xmls, q_rels_test_dict, classification_model, q, args=None)
+
+    lock.acquire()
+    print("Topic " + str(list(q_rels_test_dict.keys()).index(q)) + " =>")
+    print(result)
+    print()
+    lock.release()
 
 
-D_PATH = 'rcv1_supervised/rcv1_rel10/'
+D_PATH = 'rcv1/'
 q_topics_dict = read_topics_file()  # dictionary with topic id: topic(title, desc, narrative) ,for each topic
 q_rels_train_dict = red_qrels_file()  # dictionary with topic id: relevant document id ,for each topic
 q_rels_test_dict = red_qrels_file("qrels.test.txt")  # dictionary with topic id: relevant document id ,for each topic
 train_xmls, test_xmls = read_xml_files(D_PATH)
 
-for q in ['R102']: # q_rels_test_dict
-    print(len(test_xmls.keys()))
-    classification_model = training(q, train_xmls, q_rels_train_dict, 'RandomForest')
-    # print(classification_model.best_params_)
+thread_list = []
+for q in list(q_rels_test_dict.keys())[:10]:
+    x = threading.Thread(target=worker, args=(q,))
+    thread_list.append(x)
+    x.start()
 
-    #print(rank_docs(test_xmls,q,classification_model,10))
-
-    # result = classify(test_xmls, q, classification_model,'prob')
-    #print('hedefef')
-    #print(result)
-
-    print(evaluate(q_topics_dict, test_xmls, q_rels_test_dict, classification_model, q, args=None))
-
+for x in thread_list:
+    x.join()
 '''
 print(classification_model)
 for test_file in test_xmls.keys():
