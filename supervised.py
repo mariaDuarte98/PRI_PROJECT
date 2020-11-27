@@ -9,7 +9,7 @@ from sklearn.decomposition import PCA
 from sklearn.model_selection import RandomizedSearchCV
 
 vectorizer = TfidfVectorizer()
-pca_model = PCA()
+pca_model = PCA(n_components=20)
 lock = threading.Lock()
 
 
