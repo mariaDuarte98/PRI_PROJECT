@@ -52,10 +52,10 @@ def read_topics_file():
     for topic in content.split("</top>")[:-1]:
         topic = re.split(r'<title>|<desc>|<narr>',topic)
         num = topic[0].replace("<top>  <num> Number: ", "").replace(" ", "")
-        title = preprocessing(topic[1])
-        desc = preprocessing(topic[2].replace("Description: ", ""))
+        title = topic[1]
+        desc = topic[2].replace("Description: ", "")
         narr = topic[3].replace("Narrative: ", "")
-        narr = preprocessing(narr.replace(" </top>", ""))
+        narr = narr.replace(" </top>", "")
 
         topics_dic[num] = Topic(title, desc, narr)
     return topics_dic

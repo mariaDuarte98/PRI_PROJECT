@@ -7,6 +7,7 @@ from sklearn.ensemble import RandomForestClassifier
 from sklearn import metrics
 from sklearn.decomposition import PCA
 from sklearn.model_selection import RandomizedSearchCV
+import numpy as np
 
 vectorizer = TfidfVectorizer()
 pca_model = PCA(n_components=20)
@@ -27,7 +28,7 @@ def training(q, Dtrain, Rtrain, args='NaiveBayes'):
             doc_relevance.append(0)
 
     X = vectorizer.fit_transform(collection).toarray()
-    X = pca_model.fit_transform(X)
+    #  X = pca_model.fit_transform(X)
     #X = pca.transform(X)
     #print(X)
     if args == 'NaiveBayes':
@@ -37,49 +38,48 @@ def training(q, Dtrain, Rtrain, args='NaiveBayes'):
     elif args == 'RandomForest':
         clf = RandomForestClassifier() # entropy also ; numer of tree default is 100, change parameters for the report
         # # Number of trees in random forest
-        # n_estimators = [int(x) for x in np.linspace(start = 200, stop = 2000, num = 10)]
+        n_estimators = [int(x) for x in np.linspace(start = 200, stop = 2000, num = 10)]
         # # Number of features to consider at every split
-        # max_features = ['auto', 'sqrt']
+        max_features = ['auto', 'sqrt']
         # # Maximum number of levels in tree
-        # max_depth = [int(x) for x in np.linspace(10, 110, num = 11)]
-        # max_depth.append(None)
+        max_depth = [int(x) for x in np.linspace(10, 110, num = 11)]
+        max_depth.append(None)
         # # Minimum number of samples required to split a node
-        # min_samples_split = [2, 5, 10]
+        min_samples_split = [2, 5, 10]
         # # Minimum number of samples required at each leaf node
-        # min_samples_leaf = [1, 2, 4]
+        min_samples_leaf = [1, 2, 4]
         # # Method of selecting samples for training each tree
-        # bootstrap = [True, False]
+        bootstrap = [True, False]
         # # Create the random grid
-        # random_grid = {'n_estimators': n_estimators,
-        #        'max_features': max_features,
-        #        'max_depth': max_depth,
-        #        'min_samples_split': min_samples_split,
-        #        'min_samples_leaf': min_samples_leaf,
-        #        'bootstrap': bootstrap}
-        # random = RandomizedSearchCV(estimator = clf, param_distributions = random_grid, n_iter = 100, cv = 3, verbose=2, random_state=42, n_jobs = -1)
-        # return random.fit(X, doc_relevance)
-        return clf.fit(X, doc_relevance)
+        random_grid = {'n_estimators': n_estimators,
+                'max_features': max_features,
+                'max_depth': max_depth,
+                'min_samples_split': min_samples_split,
+                'min_samples_leaf': min_samples_leaf,
+                'bootstrap': bootstrap}
+        random = RandomizedSearchCV(estimator = clf, param_distributions = random_grid, n_iter = 100, cv = 3, verbose=2, random_state=42, n_jobs = -1)
+        return random.fit(X, doc_relevance)
+        #return clf.fit(X, doc_relevance)
 
 
-def classify(d, q, M, args=None):
+def classify(d, M, args=None):
     s = ""
     for word in d:
         s += word + " "
     x_test = vectorizer.transform([s]).toarray()
    # pca = pca_model.fit(x_test)
-    x_test = pca_model.transform(x_test)
+    #   x_test = pca_model.transform(x_test)
     if args == 'prob':
         return M.predict_proba(x_test) # probabilistic output
     else:
         return M.predict(x_test)
 
-
-def rank_docs(D,q,M,p):
+def rank_docs(D, M, p):
     prob_docs = {}
     for doc in D.keys():
-        prob = classify(D[doc], q, M, 'prob')[0][0]
+        prob = classify(D[doc], M, 'prob')[0][0]
         prob_docs[doc] = prob
-
+    print(prob_docs)
 
     return sorted(prob_docs, key=prob_docs.get, reverse=True)[:p]
 
@@ -125,6 +125,7 @@ q_rels_train_dict = red_qrels_file()  # dictionary with topic id: relevant docum
 q_rels_test_dict = red_qrels_file("qrels.test.txt")  # dictionary with topic id: relevant document id ,for each topic
 train_xmls, test_xmls = read_xml_files(D_PATH)
 
+'''
 thread_list = []
 for q in list(q_rels_test_dict.keys())[:10]:
     x = threading.Thread(target=worker, args=(q,))
@@ -133,6 +134,8 @@ for q in list(q_rels_test_dict.keys())[:10]:
 
 for x in thread_list:
     x.join()
+'''
+
 '''
 print(classification_model)
 for test_file in test_xmls.keys():
