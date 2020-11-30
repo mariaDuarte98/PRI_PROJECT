@@ -265,7 +265,7 @@ if collect == "1":
     external_flag = "f" # topics evaluation has no external criteria
 
 if collect == "2":
-    D_PATH = "rcv1_rel5/"
+    D_PATH = "rcv1/"
     train_xmls, test_xmls, codes = read_xml_files(D_PATH)
 
     q_rels_train_dict = red_qrels_file()  # dictionary with topic id: relevant document id ,for each topic
