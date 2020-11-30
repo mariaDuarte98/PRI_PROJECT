@@ -8,200 +8,17 @@
 @@    Maria Duarte - 86474     @@
 @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
 """
-import nltk
-import math
 import pandas as pd
-from nltk.corpus import stopwords
-from nltk.stem import PorterStemmer
-from sklearn.feature_extraction import text
 import networkx as nx
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 from rank_bm25 import BM25Okapi
 from sklearn.metrics.pairwise import pairwise_distances
-import xml.etree.ElementTree as ET
-import os
 import datetime
-import re
-
-
 import matplotlib.pyplot as plt
-from sklearn.metrics import silhouette_score
-from sklearn.decomposition import PCA
-from sklearn.preprocessing import StandardScaler
-
-# Creating topic class to represent its structure
-class Topic:
-    def __init__(self, title, desc, narr):
-        self.title = title
-        self.desc = desc
-        self.narr = narr
-
-# Function that processes qrels file
-def red_qrels_file():
-    rels_dict = {}
-    with open(Q_RELS_TEST) as file:
-        for line in file:
-            topic_num, doc_id, relevante_bool = line.split(' ')
-            relevante_bool = relevante_bool.replace('\n', '')
-            if topic_num in rels_dict:
-                if relevante_bool == '1':
-                    rels_dict[topic_num].append(doc_id)
-            else:
-                if relevante_bool == '1':
-                    rels_dict[topic_num] = [doc_id]
-    return rels_dict
-
-# Function that processes topics file
-def read_topics_file():
-    topics_dic = {}
-    with open(Q_TOPICS_PATH, 'r') as file:
-        for line in file:
-            if '<num>' in line:
-                num = (line.replace('<num> Number: ', '')).replace('\n', '')
-                num = num.replace(" ", "")
-            elif '<title>' in line:
-                title = line.replace('<title>', '')
-            elif '<desc>' in line:
-                desc = ""
-                line = file.readline()
-                while '<narr>' not in line:
-                    if len(line) > 1:
-                        desc += " " + line
-                    line = file.readline()
-                narr = ""
-                line = file.readline()
-                while '</top>' not in line:
-                    if len(line) > 1:
-                        narr += " " + line
-                    line = file.readline()
-             #   if delete_irrel == 'True':
-              #      narr = update_narrative(narr)
-                topics_dic[num] = Topic(title, desc, narr)
-    return topics_dic
+from main import *
 
 
-#  Function responsible of preprocessing all the tokens:
-#  punctuation, lower casing, stopwords, stemming
-def preprocessing(content):
-    # punctuation
-    content = re.sub(r'\W', ' ', content)
-    # lower casing
-    tokens = nltk.word_tokenize(content.lower())
-    # stop words
-    if stop_words_flag == 'True':
-        stop_words = text.ENGLISH_STOP_WORDS.union(set(stopwords.words('english')))
-    else:
-        stop_words = []
-    # stemming
-    ps = PorterStemmer()
-    preprocessed_tokens = []
-    for t in tokens:
-        if t not in stop_words and not t.isnumeric(): # and len(t) > 3:
-            preprocessed_tokens.append(ps.stem(t))
-    return preprocessed_tokens
-
-
-######################
-# Reading collection #
-######################
-
-#   Returns 2 XML Lists:
-#       train_xmls, test_xmls
-def read_xml_files():
-    #folder = os.listdir(D_PATH)
-    train_xmls = {}
-    test_xmls = {}
-    train_not_processed = {}
-    test_not_processed = {}
-    #for folder in folders:
-    xml_file_names = os.listdir(D_PATH)
-    for xml_file_name in xml_file_names:
-        if os.path.isfile(os.path.join(D_PATH, xml_file_name)) and xml_file_name.find(
-                ".xml") != -1:
-            xml_file = ET.parse(D_PATH + xml_file_name)
-            year, month, day = [int(x) for x in
-                                xml_file.getroot().attrib.get('date').split(
-                                    '-')]
-            date = datetime.date(year, month, day)
-            document = ''
-            for tag in ['headline', 'byline', 'dateline']:
-                for content in xml_file.getroot().iter(tag):
-                    if content.text:
-                        document += ' ' + content.text
-            for content in xml_file.getroot().iter('text'):
-                for paragraph in content:
-                    document += ' ' + paragraph.text
-            key = xml_file.getroot().attrib.get('itemid')
-            if date <= DATE_TRAIN_UNTIL:
-                train_xmls[key] = preprocessing(document)
-            else:
-                test_xmls[key] = preprocessing(document)
-
-    return train_xmls, test_xmls
-
-
-###############################################
-# Clustering approach: organizing collections #
-###############################################
-# Note: due to efficiency constraints, please undertake this analysis in Dtrain documents only,
-# as opposed to clustering the full RCV1 collection, D.
-
-def clustering(D, args=None):
-    # @input document collection D (or topic collection Q), optional arguments on clustering analysis
-    # @behavior selects an adequate clustering algorithm and distance criteria to identify the best
-    # number of clusters for grouping the D (or Q) documents
-    # @output clustering solution given by a list of clusters,
-    # each entry is a cluster characterized by the pair (centroid, set of document/topic identifiers)
-    exit(0)
-
-
-def interpret(cluster,D,args):
-    # @input cluster and document collection D (or topic collection Q)
-    # @behavior describes the documents in the cluster considering both median and me- doid criteria
-    # @output cluster description
-    exit(0)
-
-
-def evaluate(q, k, I, args):
-    # @input topic q (identifier), number of top terms k, and index I
-    # @behavior maps the inputted topic into a simplified Boolean query using
-    # extract topic query and then search for matching* documents using the Boolean IR model
-    # @output the filtered collection, specifically an ordered list of document identifiers
-    exit(0)
-
-#########################################################
-# Supervised approach: incorporating relevance feedback #
-#########################################################
-
-
-def training(q,Dtrain,Rtrain,args):
-    # @input topic document q ∈ Q, training collection Dtrain,
-    # judgments Rtrain, and optional arguments on the classification process
-    # @behavior learns a classification model to predict the relevance of
-    # documents on the topic q using Dtrain and Rtrain,
-    # where the training process is subjected to proper preprocessing,
-    # classifier’s selection and hyperparameterization
-    # @output q-conditional classification model
-    exit(0)
-
-
-def classify(d,q,M,args):
-    # @input document d ∈ Dtest, topic q ∈ Q, and classification model M
-    # @behavior classifies the probability of document d to be relevant for topic q given M
-    # @output probabilistic classification output on the relevance of document d to the topic t
-    exit(0)
-    
-    
-def evaluate(Qtest,Dtest,Rtest,args):
-    # @input subset of topics Qtest ⊆ Q, testing document collection Dtest, judgments Rtest,
-    # and arguments for the classification and retrieval modules
-    # @behavior evaluates the behavior of the IR system in the presence and absence of relevance feedback.
-    # In the presence of relevance feedback, training and testing functions are called for each topic
-    # in Qtest for a more comprehensive assessment
-    # @output performance statistics regarding the underlying classification system
-    # and the behavior of the aided IR system
-    exit(0)
 
 #########################################################
 #      Graph ranking approach: document centrality      #
@@ -488,7 +305,7 @@ def undirected_page_rank(q, D, p, sim, threshold, selection,priors=None):
 
 
 stop_words_flag = 'True'
-D_PATH = "rcv1_rel_test50/"
+D_PATH = 'rcv1/'
 Q_PATH = "topics.txt"
 Q_TOPICS_PATH = "topics.txt"
 Q_RELS_TEST = "qrels.test.txt"
@@ -500,47 +317,11 @@ q_rels_test_dict = red_qrels_file()  # dictionary with topic id: relevant docume
 
 #folders = os.listdir("rcv1_train/")
 #current = os.getcwd()
+
 print('Start reading collection...')
-train_xmls, test_xmls  = read_xml_files()
+train_xmls, test_xmls  = read_xml_files(D_PATH)
 print('Done reading collection!')
 print(len(test_xmls.keys()))
 
-'''
-topic_content = q_topics_dict['R105']
-topic_string = '' + topic_content.title + ' ' + topic_content.desc + ' ' + topic_content.narr
-topic_processed = preprocessing(topic_string)
 
-docs, _, _ = bm25(topic_processed, test_xmls, 15)
-
-selected_col = {}
-for doc_score in docs:
-    doc = doc_score[0]
-    selected_col[doc] = test_xmls[doc]
-
-G = build_graph(selected_col, 'cosine', 0.8)
-print(G.degree())
-deg_centrality = nx.degree_centrality(G)
-print(deg_centrality)
-close_centrality = nx.closeness_centrality(G)
-print(close_centrality)
-bet_centrality = nx.betweenness_centrality(G, normalized=True,
-                                                          endpoints=False)
-#print(bet_centrality)
-#res = undirected_page_rank('R101',test_xmls,10,'euclidean',0.2, 'bm25','degree_cent')
-#print(res)
-'''
-
-'''
-for topic_num in topics_ids:
-    if topic_num != 100 and topic_num <= 9:
-            topic = "R10" + str(topic_num)  # for example for 3, we have topic R103
-    elif topic_num != 100:
-        topic = "R1" + str(topic_num)   # for example for 14 we have topic R114
-    else:
-        topic = "R200"              # for 100 we have topic R200
-    D_PATH = "rcv1_r" + str(topic_num) + "/"
-    print(topic)
-    print(D_PATH)
-    DATE_TRAIN_UNTIL = datetime.date(1996, 9, 30)
-    train_xmls, test_xmls = read_xml_files()
-    clustering(train_xmls)'''
+print(undirected_page_rank('R101', test_xmls, 10, 'cosine', 0.2, 'bm25','bm25'))
