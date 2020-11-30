@@ -225,7 +225,6 @@ def undirected_page_rank(q, D, p, sim, threshold, selection,priors=None):
         docs, _, _ = bm25(topic_processed, D, p)
     elif selection == 'svm':
         docs, _, _ = ranking(topic_processed,D,p)
-        #print(docs)
     elif selection == 'rrf':
         docs_bm, all_bm, _ = bm25(topic_processed, D, p)
         docs_svm, all_svm, _ = ranking(topic_processed, D, p)
@@ -250,7 +249,6 @@ def undirected_page_rank(q, D, p, sim, threshold, selection,priors=None):
         page_scores = nx.pagerank(G, personalization=dict(docs), max_iter=100)
     elif priors == 'bm25':
         docs, _, _ = bm25(topic_processed, D, p)
-        #print(docs)
         page_scores = nx.pagerank(G, personalization=dict(docs), max_iter=100)
     elif priors == 'rrf' and selection == 'rrf':
         page_scores = nx.pagerank(G, personalization=dict(docs), max_iter=100)
@@ -265,12 +263,6 @@ def undirected_page_rank(q, D, p, sim, threshold, selection,priors=None):
             page_scores = nx.pagerank(G, personalization=deg_centrality, max_iter=100)
         else:
             page_scores = nx.pagerank(G)
-    elif priors == 'in_degree_cent':
-        deg_centrality = nx.in_degree_centrality(G)
-        page_scores = nx.pagerank(G, personalization=deg_centrality, max_iter=100)
-    elif priors == 'out_degree_cent':
-        deg_centrality = nx.out_degree_centrality(G)
-        page_scores = nx.pagerank(G, personalization=deg_centrality, max_iter=100)
     elif priors == 'close_cent':
         close_centrality = nx.closeness_centrality(G)
         if sum(close_centrality.values()) != 0:
@@ -321,7 +313,6 @@ q_rels_test_dict = red_qrels_file()  # dictionary with topic id: relevant docume
 print('Start reading collection...')
 train_xmls, test_xmls  = read_xml_files(D_PATH)
 print('Done reading collection!')
-print(len(test_xmls.keys()))
 
 
-print(undirected_page_rank('R101', test_xmls, 10, 'cosine', 0.2, 'bm25','bm25'))
+
