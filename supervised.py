@@ -123,7 +123,7 @@ D_PATH = 'rcv1/'
 q_topics_dict = read_topics_file()  # dictionary with topic id: topic(title, desc, narrative) ,for each topic
 q_rels_train_dict = red_qrels_file()  # dictionary with topic id: relevant document id ,for each topic
 q_rels_test_dict = red_qrels_file("qrels.test.txt")  # dictionary with topic id: relevant document id ,for each topic
-train_xmls, test_xmls = read_xml_files(D_PATH)
+train_xmls, test_xmls, _ = read_xml_files(D_PATH)
 
 '''
 thread_list = []

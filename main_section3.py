@@ -311,7 +311,7 @@ q_rels_test_dict = red_qrels_file()  # dictionary with topic id: relevant docume
 #current = os.getcwd()
 
 print('Start reading collection...')
-train_xmls, test_xmls  = read_xml_files(D_PATH)
+train_xmls, test_xmls, _  = read_xml_files(D_PATH)
 print('Done reading collection!')
 
 
