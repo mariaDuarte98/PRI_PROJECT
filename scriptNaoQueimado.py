@@ -6,7 +6,7 @@ import datetime
 
 train = True
 test = True
-numberOfTopics = 50
+numberOfTopics = 20
 # Place rcv1 folder outside project to avoid git mistakes
 fullDatasetPath = "../rcv1/"
 
