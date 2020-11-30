@@ -9,6 +9,7 @@ from sklearn.decomposition import PCA
 from sklearn.model_selection import RandomizedSearchCV
 import numpy as np
 
+numTopics = 5
 vectorizer = TfidfVectorizer()
 pca_model = PCA(n_components=20)
 lock = threading.Lock()
@@ -83,40 +84,37 @@ def rank_docs(D, M, p):
 
     return sorted(prob_docs, key=prob_docs.get, reverse=True)[:p]
 
-def evaluate(Qtest, Dtest, Rtest, M, q, args=None):
-
+def evaluate(q, Dtest, Rtest, args=None):
+    classification_model = training(q, train_xmls, q_rels_train_dict, 'NaiveBayes')
     # evaluate with relevance feedback
-    labels_pred, labels_test, accuracies, error_rate = [], [], [], []
+    labels_pred, labels_test = [], []
     for doc in Dtest.keys():
-        label = classify(Dtest[doc], q, M)[0]
+        label = classify(Dtest[doc], q, classification_model)[0]
         labels_pred.append(label)
         if doc in Rtest[q]:
             labels_test.append(1)
         else:
             labels_test.append(0)
-    accuracy = metrics.accuracy_score(labels_test, labels_pred)
-    accuracies.append(accuracy)
-    error_rate.append(1 - accuracy)
+            
+    if 1 not in labels_pred:
+      return 0, 1 , 0, 0, 0
+    accuracy = accuracy_score(labels_test, labels_pred)
+    precision = precision_score(labels_test, labels_pred)
+    recall = recall_score(labels_test, labels_pred)
+    f1 = f1_score(labels_test, labels_pred)
 
-    return accuracies, error_rate # accuracy and error rate for all topics
+    return accuracy, 1 - accuracy, precision, recall, f1  # accuracy and error rate for all topics
 
 def worker(q):
-    classification_model = training(q, train_xmls, q_rels_train_dict, 'RandomForest')
-    # print(classification_model.best_params_)
 
-    # print(rank_docs(test_xmls,q,classification_model,10))
-
-    # result = classify(test_xmls, q, classification_model,'prob')
-    # print('hedefef')
-    # print(result)
-
-    result = evaluate(q_topics_dict, test_xmls, q_rels_test_dict, classification_model, q, args=None)
+    result = evaluate(q, test_xmls, q_rels_test_dict, args=None)
 
     lock.acquire()
-    print("Topic " + str(list(q_rels_test_dict.keys()).index(q)) + " =>")
+    print("Topic " + q + " =>")
     print(result)
     print()
     lock.release()
+    accuracies.append(result)
 
 
 D_PATH = 'rcv1/'
@@ -127,7 +125,7 @@ train_xmls, test_xmls, _ = read_xml_files(D_PATH)
 
 '''
 thread_list = []
-for q in list(q_rels_test_dict.keys())[:10]:
+for q in list(q_rels_test_dict.keys())[:numTopics]:
     x = threading.Thread(target=worker, args=(q,))
     thread_list.append(x)
     x.start()
