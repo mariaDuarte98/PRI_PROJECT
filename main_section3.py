@@ -286,15 +286,9 @@ def undirected_page_rank(q, D, p, sim, threshold, selection,priors=None):
 
     return res[:p]
 
-# todo text processing options
-# todo IR models
-
 #########################################################
 #                     Main   Code                       #
 #########################################################
-
-# Just some input variable to run our experiments with the analyses.py file
-
 
 stop_words_flag = 'True'
 D_PATH = 'rcv1/'
@@ -306,9 +300,6 @@ topics_ids = list(range(1, 51))
 q_topics_dict = read_topics_file()   # dictionary with topic id: topic(title, desc, narrative) ,for each topic
 q_rels_test_dict = red_qrels_file()  # dictionary with topic id: relevant document id ,for each topic
 
-
-#folders = os.listdir("rcv1_train/")
-#current = os.getcwd()
 
 print('Start reading collection...')
 train_xmls, test_xmls, _  = read_xml_files(D_PATH)
