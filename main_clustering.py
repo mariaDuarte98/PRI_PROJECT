@@ -141,7 +141,7 @@ def interpret(cluster_docs, pca, X, vectorizer, criteria, num_terms=10):
     final = {}
     cluster_doc_ids = cluster_docs.index.tolist()
 
-    if criteria == "1" or "3": # median criteria or both
+    if criteria == "1" or criteria == "3": # median criteria or both
         # MEDIAN
         # Top terms based on median for all documents
         # Dataframe with tfidf of each term in each document in the cluster
@@ -153,7 +153,7 @@ def interpret(cluster_docs, pca, X, vectorizer, criteria, num_terms=10):
         top_words = top_words[top_words != 0]
         final['median_criteria'] = top_words.to_dict()
     
-    if criteria == "2" or "3": # medoid criteria or both
+    if criteria == "2" or criteria == "3": # medoid criteria or both
         # MEDOID
         # Index of document with the lowest mean distance to the remaining documents in the cluster
         distances = pairwise_distances(pca[cluster_doc_ids])
@@ -265,7 +265,7 @@ if collect == "1":
     external_flag = "f" # topics evaluation has no external criteria
 
 if collect == "2":
-    D_PATH = "rcv1/"
+    D_PATH = "rcv1_rel5/"
     train_xmls, test_xmls, codes = read_xml_files(D_PATH)
 
     q_rels_train_dict = red_qrels_file()  # dictionary with topic id: relevant document id ,for each topic
