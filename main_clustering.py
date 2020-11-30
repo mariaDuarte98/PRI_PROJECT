@@ -8,34 +8,24 @@
 @@    Maria Duarte - 86474     @@
 @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
 """
-from main import read_xml_files, red_qrels_file, read_topics_file, preprocessing
-import pandas as pd
+from main import *
 import numpy as np
-import os
-import itertools
-
-import matplotlib.pyplot as plt
 from sklearn.metrics import silhouette_score, pairwise_distances
 from sklearn.decomposition import PCA
-from sklearn.preprocessing import StandardScaler
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.cluster import AgglomerativeClustering, KMeans, AffinityPropagation
 from sklearn_extra.cluster import KMedoids
-from kmodes.kmodes import KModes
 import hdbscan
-from scipy.cluster.hierarchy import dendrogram, linkage, fcluster
+from scipy.cluster.hierarchy import dendrogram, fcluster
 from sklearn.metrics.cluster import adjusted_rand_score, contingency_matrix
-from sklearn.metrics import normalized_mutual_info_score, adjusted_mutual_info_score, accuracy_score
-from scipy.spatial import Voronoi, voronoi_plot_2d
-
-import seaborn as sns
+from sklearn.metrics import normalized_mutual_info_score, accuracy_score
 from scipy.optimize import linear_sum_assignment
 
 ###############################################
 # Clustering approach: organizing collections #
 ###############################################
 
-def plot_dendrogram(model, **kwargs):
+def plot_dendrogram(model):
     # Create linkage matrix and then creates the dendrogram
     # create the counts of samples under each node
     counts = np.zeros(model.children_.shape[0])
@@ -56,26 +46,22 @@ def plot_dendrogram(model, **kwargs):
     n_clusters = len(list(dict.fromkeys(ind).keys()))
 
     # Create the corresponding dendrogram
-    dendrogram(linkage_matrix, **kwargs)
+    dendrogram(linkage_matrix)
 
     return n_clusters
 
 def clustering(collection, model, ids, eval_criteria=None):
     vectorizer = TfidfVectorizer(stop_words = "english")
     X = vectorizer.fit_transform(collection).toarray()
-
     # Find optimal number of components
     pca = PCA().fit(X)
     y = np.cumsum(pca.explained_variance_ratio_)
     idx = np.argwhere(np.diff(np.sign(0.8 - y))).flatten()
     # reduce the number of dimensions
     pca = PCA(n_components=int(idx)).fit_transform(X)
-
     if model == "ap":
-        n_clusters = 0
-        while n_clusters ==0:
-            clustering = AffinityPropagation(random_state=None, verbose=True).fit(pca)
-            n_clusters = len(clustering.cluster_centers_)
+        clustering = AffinityPropagation(random_state=None, verbose=True).fit(pca)
+        n_clusters = len(clustering.cluster_centers_)
 
     elif model == "hdbscan":
         clustering = hdbscan.HDBSCAN(algorithm='best', min_cluster_size=2).fit(pca)
@@ -84,7 +70,6 @@ def clustering(collection, model, ids, eval_criteria=None):
     elif model == "agglomerative":
         # setting distance_threshold=0 ensures we compute the full tree.
         clustering = AgglomerativeClustering(distance_threshold=0, n_clusters = None, linkage = 'average', affinity = "cosine").fit(pca)
-
         # gets optimal number of clusters
         n_clusters = plot_dendrogram(clustering)
         # plots dendrogram
@@ -95,10 +80,10 @@ def clustering(collection, model, ids, eval_criteria=None):
 
         clustering = AgglomerativeClustering(n_clusters = n_clusters, linkage = 'average', affinity = "cosine").fit(pca)
 
-    elif model == "kmeans" or "kmedoids" or "kmodes":
+    elif model == "kmeans" or "kmedoids":
         sum_of_squared_distances = []
         sil = []
-        K = range(2, len(ids.keys()))
+        K = range(2, len(ids))
         for k in K:
             if model == "kmeans":
                 clustering = KMeans(n_clusters=k, init='k-means++', max_iter=200).fit(pca)
@@ -145,11 +130,11 @@ def clustering(collection, model, ids, eval_criteria=None):
     # plt.clf()
 
     # Create dataframe for collection and corresponding cluster
-    docs_cl = pd.DataFrame(list(zip(ids.keys(), clustering.labels_)), columns=['Id','cluster'])
+    docs_cl = pd.DataFrame(list(zip(ids, clustering.labels_)), columns=['Id','cluster'])
     # Add to dataframe, the topics associated with each document
     if eval_criteria != None:
         docs_cl['criteria'] = eval_criteria.values()
-    return docs_cl, clustering, pca, X, vectorizer
+    return docs_cl, pca, X, vectorizer
 
 
 def interpret(cluster_docs, pca, X, vectorizer, criteria, num_terms=10):
@@ -217,11 +202,7 @@ def compute_ground_truth(new_dataframe, eval_criteria_opt):
     return true_labels
 
 
-def evaluate(pca, clustering, dataframe, remove_outliers, external_flag, eval_criteria_opt = None):
-    # @input document collection D (or topic collection Q), optional arguments on
-    # clustering analysis
-    # @behavior evaluates a solution produced by the introduced clustering function
-    # @output clustering internal (and optionally external) criteria
+def evaluate(dataframe, pca, remove_outliers, external_flag, eval_criteria_opt = None):
     final = {}
     new_dataframe = dataframe.copy()
     if remove_outliers == "t":
@@ -280,11 +261,11 @@ if collect == "1":
 
         collection.append(topic_sentences)
 
-    clustering_dataframe, model, pca, X, vectorizer = clustering(collection, models[int(model)-1], q_topics_dict)
+    clustering_dataframe, pca, X, vectorizer = clustering(collection, models[int(model)-1], q_topics_dict.keys())
     external_flag = "f" # topics evaluation has no external criteria
 
 if collect == "2":
-    D_PATH = "rcv1/"
+    D_PATH = "rcv1_rel5/"
     train_xmls, test_xmls, codes = read_xml_files(D_PATH)
 
     q_rels_train_dict = red_qrels_file()  # dictionary with topic id: relevant document id ,for each topic
@@ -314,7 +295,7 @@ if collect == "2":
                 doc_sentences += " " + token
 
             collection.append(doc_sentences)
-    clustering_dataframe, model, pca, X, vectorizer = clustering(collection, models[int(model)-1], train_xmls, eval_criteria)
+    clustering_dataframe, pca, X, vectorizer = clustering(collection, models[int(model)-1], eval_criteria.keys(), eval_criteria)
 
 interpret_criteria = input("\nSelect median or medoid or both criteria: [1 or 2 or 3] ")
 
@@ -331,9 +312,9 @@ print("\n---------- EVALUATE ----------\n")
 if external_flag != "t":
     # chooses to remove outliers or not
     remove_outliers = input("\nRemove outliers for evaluation: [t or f] ")
-    criteria = evaluate(pca, model, clustering_dataframe, remove_outliers, external_flag)
+    criteria = evaluate(clustering_dataframe, pca, remove_outliers, external_flag)
     print(criteria)
 else: # both criterias
     # remove outliers for external criteria evaluation
-    criteria = evaluate(pca, model, clustering_dataframe, "t", external_flag, eval_criteria_opt)
+    criteria = evaluate(clustering_dataframe, pca, "t", external_flag, eval_criteria_opt)
     print(criteria)
