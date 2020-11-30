@@ -137,9 +137,6 @@ for x in thread_list:
 '''
 
 '''
-print(classification_model)
 for test_file in test_xmls.keys():
     result = classify(test_xmls[test_file], q, classification_model)
-    print('hedefef')
-    print(result)
 '''
