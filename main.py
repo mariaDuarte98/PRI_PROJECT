@@ -92,6 +92,7 @@ def read_xml_files(D_PATH):
     #folder = os.listdir(D_PATH)
     train_xmls = {}
     test_xmls = {}
+    codes = {}
     #for folder in folders:
     xml_file_names = os.listdir(D_PATH)
     for xml_file_name in xml_file_names:
@@ -112,12 +113,17 @@ def read_xml_files(D_PATH):
                 for paragraph in content:
                     document += ' ' + paragraph.text
             key = xml_file.getroot().attrib.get('itemid')
+            for content in xml_file.getroot().iter('code'):
+                if key in codes:
+                    codes[key].append(content.attrib.get('code'))
+                else:
+                     codes[key] = []
             if date <= DATE_TRAIN_UNTIL:
                 train_xmls[key] = preprocessing(document)
             else:
                 test_xmls[key] = preprocessing(document)
 
-    return train_xmls, test_xmls
+    return train_xmls, test_xmls, codes
 
 #########################################################
 #                     Main   Code                       #
