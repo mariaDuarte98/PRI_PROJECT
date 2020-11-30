@@ -8,10 +8,11 @@
 @@    Maria Duarte - 86474     @@
 @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
 """
-from main import read_xml_files, red_qrels_file, read_topics_file
+from main import read_xml_files, red_qrels_file, read_topics_file, preprocessing
 import pandas as pd
 import numpy as np
 import os
+import itertools
 
 import matplotlib.pyplot as plt
 from sklearn.metrics import silhouette_score, pairwise_distances
@@ -24,19 +25,18 @@ from kmodes.kmodes import KModes
 import hdbscan
 from scipy.cluster.hierarchy import dendrogram, linkage, fcluster
 from sklearn.metrics.cluster import adjusted_rand_score, contingency_matrix
+from sklearn.metrics import normalized_mutual_info_score, adjusted_mutual_info_score, accuracy_score
+from scipy.spatial import Voronoi, voronoi_plot_2d
 
 import seaborn as sns
+from scipy.optimize import linear_sum_assignment
 
 ###############################################
 # Clustering approach: organizing collections #
 ###############################################
 
-# Note: due to efficiency constraints, please undertake this analysis in Dtrain documents only,
-# as opposed to clustering the full RCV1 collection, D.
-
 def plot_dendrogram(model, **kwargs):
-    # Create linkage matrix and then plot the dendrogram
-
+    # Create linkage matrix and then creates the dendrogram
     # create the counts of samples under each node
     counts = np.zeros(model.children_.shape[0])
     n_samples = len(model.labels_)
@@ -53,228 +53,203 @@ def plot_dendrogram(model, **kwargs):
                                       counts]).astype(float)
 
     ind = fcluster(linkage_matrix, t = 0.5, criterion = 'distance')
-    print(ind)
     n_clusters = len(list(dict.fromkeys(ind).keys()))
-    print(n_clusters)
 
-    # Plot the corresponding dendrogram
-    den = dendrogram(linkage_matrix, **kwargs)
-    # cluster_idxs = {}
-    # for c, pi in zip(den['color_list'], den['icoord']):
-    #     for leg in pi[1:3]:
-    #         i = (leg - 5.0) / 10.0
-    #         if abs(i - int(i)) < 1e-5:
-    #             cluster_idxs[str(int(i))] = int(c.replace("C", ""))
+    # Create the corresponding dendrogram
+    dendrogram(linkage_matrix, **kwargs)
 
     return n_clusters
 
-
-def clustering(D, model):
-    # @input document collection D (or topic collection Q), optional arguments on clustering analysis
-    # @behavior selects an adequate clustering algorithm and distance criteria to identify the best
-    # number of clusters for grouping the D (or Q) documents
-    # @output clustering solution given by a list of clusters,
-    # each entry is a cluster characterized by the pair (centroid, set of document/topic identifiers)
-
+def clustering(collection, model, ids, eval_criteria=None):
     vectorizer = TfidfVectorizer(stop_words = "english")
-    collection = []
-    doc_topics =  {}
-    for doc in D.keys():
-        doc_topics_list = []
-        doc_sentences = ""
-        for token in D[doc]:
-            doc_sentences += " " + token
-        collection.append(doc_sentences)
-        doc_topics[doc] = [value for value in q_rels_train_dict.keys() if doc in q_rels_train_dict[value]]
-
     X = vectorizer.fit_transform(collection).toarray()
 
-    #NAO SEI SE DEVEMOS USAR---------------
-    # standard = StandardScaler().fit_transform(X) #Standardizes features by removing the mean and scaling to unit variance
-    
     # Find optimal number of components
     pca = PCA().fit(X)
     y = np.cumsum(pca.explained_variance_ratio_)
-    idx = np.argwhere(np.diff(np.sign(0.5 - y))).flatten()
-    print(idx)
+    idx = np.argwhere(np.diff(np.sign(0.8 - y))).flatten()
     # reduce the number of dimensions
-    pca = PCA(n_components=int(idx)).fit(X)
-    pca_2d = pca.transform(X)
+    pca = PCA(n_components=int(idx)).fit_transform(X)
 
     if model == "ap":
-        clustering = AffinityPropagation(random_state=None).fit(pca_2d)
-        n_clusters = len(clustering.cluster_centers_)
+        n_clusters = 0
+        while n_clusters ==0:
+            clustering = AffinityPropagation(random_state=None, verbose=True).fit(pca)
+            n_clusters = len(clustering.cluster_centers_)
 
     elif model == "hdbscan":
-        clustering = hdbscan.HDBSCAN(algorithm='best', min_cluster_size=2, cluster_selection_epsilon=0.5).fit(pca_2d)
+        clustering = hdbscan.HDBSCAN(algorithm='best', min_cluster_size=2).fit(pca)
         n_clusters = len(list(dict.fromkeys(clustering.labels_)))
-        # clustering.minimum_spanning_tree_.plot(edge_cmap='viridis',
-        #                               edge_alpha=0.6,
-        #                               node_size=80,
-        #                               edge_linewidth=2)
-        # plt.title(model + " tree plot")
-        # plt.savefig(model + "_tree_plot.png")
-        # plt.clf()
-        # clustering.single_linkage_tree_.plot(cmap='viridis', colorbar=True)
-        # plt.title(model + " hierarchy plot")
-        # plt.savefig(model + "_hierarchy_plot.png")
-        # plt.clf()
-        # clustering.condensed_tree_.plot(select_clusters=True, selection_palette=sns.color_palette())
-        # plt.title(model + " condensed_tree plot")
-        # plt.savefig(model + "_condensed_tree_plot.png")
-        # plt.clf()
 
     elif model == "agglomerative":
         # setting distance_threshold=0 ensures we compute the full tree.
-        clustering = AgglomerativeClustering(distance_threshold=0, n_clusters = None, linkage = 'complete', affinity = "cosine").fit(pca_2d)
+        clustering = AgglomerativeClustering(distance_threshold=0, n_clusters = None, linkage = 'average', affinity = "cosine").fit(pca)
 
-        plt.title('Hierarchical Clustering Dendrogram')
-        n_clusters = plot_dendrogram(clustering, truncate_mode='level')
-        plt.xlabel("Number of points in node (or index of point if no parenthesis).")
-        plt.savefig("clustering_plots/" + model + "_dendrogram.png")
-        plt.clf()
-        # print(cluster_indxs)
-        # clustering_labels = [cluster_indxs[str(value)] for value in clustering.labels_]
-        # n_clusters = len(list(dict.fromkeys(clustering_labels).keys()))
-
-        # clustering = linkage(pca_2d, method='complete')
-        # ind = fcluster(clustering, t = 0.5, criterion = 'distance')
-        # print(ind)
-        # n_clusters = len(list(dict.fromkeys(ind).keys()))
-        # print(n_clusters)
-        # den = dendrogram(clustering)
-
+        # gets optimal number of clusters
+        n_clusters = plot_dendrogram(clustering)
+        # plots dendrogram
         # plt.title('Hierarchical Clustering Dendrogram')
         # plt.xlabel("Number of points in node (or index of point if no parenthesis).")
-        # plt.savefig("dendrogram2.png")
+        # plt.savefig(model + "_dendrogram.png")
         # plt.clf()
 
-        clustering = AgglomerativeClustering(n_clusters = n_clusters, linkage = 'complete', affinity = "cosine").fit(pca_2d)
+        clustering = AgglomerativeClustering(n_clusters = n_clusters, linkage = 'average', affinity = "cosine").fit(pca)
 
     elif model == "kmeans" or "kmedoids" or "kmodes":
-        Sum_of_squared_distances = []
+        sum_of_squared_distances = []
         sil = []
-        K = range(2, len(D.keys()))
+        K = range(2, len(ids.keys()))
         for k in K:
-            print(k)
-
             if model == "kmeans":
-                clustering = KMeans(n_clusters=k, init='k-means++', max_iter=200, n_init=5).fit(pca_2d)
+                clustering = KMeans(n_clusters=k, init='k-means++', max_iter=200).fit(pca)
 
             elif model == "kmedoids":
-                clustering = KMedoids(n_clusters=k,init='k-medoids++', max_iter=200).fit(pca_2d)
+                clustering = KMedoids(n_clusters=k,init='k-medoids++', max_iter=200).fit(pca)
 
-            elif model == "kmodes":
-                clustering = KModes(n_clusters=k, init='Cao',max_iter=200, n_init=5).fit(pca_2d)
+            sum_of_squared_distances.append(clustering.inertia_)
 
-            # Sum_of_squared_distances.append(clustering.inertia_)
-
-            sil_score = silhouette_score(pca_2d, clustering.labels_, metric = 'cosine')
+            sil_score = silhouette_score(pca, clustering.labels_, metric = 'cosine')
             sil.append(sil_score)
 
-        plt.plot(K, sil, 'bx-')
-        plt.xlabel('k')
-        plt.ylabel('Silhouette Score')
-        plt.title('Silhouette Method For Optimal k')
+        # Create elbow graph for clustering
+        # plt.plot(K, sum_of_squared_distances, 'bx-')
+        # plt.xlabel('k')
+        # plt.ylabel('Elbow Score')
+        # plt.title('Elbow Method For Optimal k')
 
-        plt.savefig("clustering_plots/" + model + "_sil_plot.png")
-        plt.clf()
+        # plt.savefig(model + "_elbow_plot.png")
+        # plt.clf()
+
+        # Create silhouette graph for clustering
+        # plt.plot(K, sil, 'bx-')
+        # plt.xlabel('k')
+        # plt.ylabel('Silhouette Score')
+        # plt.title('Silhouette Method For Optimal k')
+
+        # plt.savefig(model + "_sil_plot.png")
+        # plt.clf()
         
         n_clusters = sil.index(max(sil)) + 2
 
         if model == "kmeans":
-            clustering = KMeans(n_clusters = n_clusters, init='k-means++', max_iter=200, n_init=5).fit(pca_2d)
+            clustering = KMeans(n_clusters = n_clusters, init='k-means++', max_iter=200).fit(pca)
 
         elif model == "kmedoids":
-            clustering = KMedoids(n_clusters = n_clusters,init='k-medoids++', max_iter=200).fit(pca_2d)
-
-        elif model == "kmodes":
-            clustering = KModes(n_clusters = n_clusters, init='Cao', max_iter=200, n_init=5).fit(pca_2d)
-
-    print("\nn_clusterssss\n" + str(n_clusters))
+            clustering = KMedoids(n_clusters = n_clusters,init='k-medoids++', max_iter=200).fit(pca)
 
     # Create graph for clustering
-    plt.title(model + " plot")
-    plt.scatter(pca_2d[:,0],pca_2d[:,1], c=clustering.labels_, cmap='rainbow')
+    # plt.title(model + " plot" + " num clusters: " + str(n_clusters))
+    # plt.scatter(pca[:,0],pca[:,1], c=clustering.labels_, cmap='rainbow')
 
-    plt.savefig("clustering_plots/" + model + "_plot.png")
-    plt.clf()
-    
-    docs_cl = pd.DataFrame(list(zip(D.keys(),doc_topics.values(), clustering.labels_)), columns=['docId','topicId', 'cluster'])
-    labels = list(sorted(dict.fromkeys(clustering.labels_).keys()))
-    docs_cl = docs_cl.sort_values(by=['cluster'])
-    docs_cl.to_csv("dataframe.csv")
+    # plt.savefig(model + "_plot.png")
+    # plt.clf()
 
-    for i in labels:
-        print("Cluster %d:" % i)
-        cluster_docs = docs_cl.loc[docs_cl['cluster'] == i]
-        print(cluster_docs)
-        # print(cluster_docs.index.tolist())
-
-        interpret(cluster_docs, pca_2d, X, vectorizer)
-
-    evaluate(D, pca_2d, clustering, docs_cl)
-
-    return docs_cl
+    # Create dataframe for collection and corresponding cluster
+    docs_cl = pd.DataFrame(list(zip(ids.keys(), clustering.labels_)), columns=['Id','cluster'])
+    # Add to dataframe, the topics associated with each document
+    if eval_criteria != None:
+        docs_cl['criteria'] = eval_criteria.values()
+    return docs_cl, clustering, pca, X, vectorizer
 
 
-def interpret(cluster_docs, pca_2d, X, vectorizer):
-    # @input cluster and document collection D (or topic collection Q)
-    # @behavior describes the documents in the cluster considering both median and medoid criteria
-    # @output cluster description
-
+def interpret(cluster_docs, pca, X, vectorizer, criteria, num_terms=10):
+    final = {}
     cluster_doc_ids = cluster_docs.index.tolist()
 
-    # MEDIAN
-    # Top terms based on median for all documents
-
-    # Dataframe with tfidf of each term in each document in the cluster
-    words_pd = pd.DataFrame(X[cluster_doc_ids], columns=vectorizer.get_feature_names())
-    # Calculates median of each term for all documents
-    median = words_pd.median()
-
-    print("\nTop 10 terms per cluster:\n")
-    top_words = median.nlargest(10)
-    print(top_words)
+    if criteria == "1" or "3": # median criteria or both
+        # MEDIAN
+        # Top terms based on median for all documents
+        # Dataframe with tfidf of each term in each document in the cluster
+        words_pd = pd.DataFrame(X[cluster_doc_ids], columns=vectorizer.get_feature_names())
+        # Calculates median of each term for all documents
+        median = words_pd.median()
+        top_words = median.nlargest(num_terms)
+        # removes terms with 0 median values
+        top_words = top_words[top_words != 0]
+        final['median_criteria'] = top_words.to_dict()
     
-    # MEDOID
-    # Index of document with the lowest mean distance to the remaining documents in the cluster
+    if criteria == "2" or "3": # medoid criteria or both
+        # MEDOID
+        # Index of document with the lowest mean distance to the remaining documents in the cluster
+        distances = pairwise_distances(pca[cluster_doc_ids])
+        mean = [distance.mean() for distance in distances]
+        medoid_index = cluster_docs.iloc[np.argmin(mean)]["Id"]
+        final['medoid_criteria'] = medoid_index
 
-    print("Medoid index:\n")
-    distances = pairwise_distances(pca_2d[cluster_doc_ids])
-    # print(distances)
-    mean = []
-    for distance in distances:
-        mean.append(distance.mean())
-    # print(mean)
-    medoid_index = np.argmin(mean)
-    # print(medoid_index)
-    print(cluster_docs.iloc[medoid_index]["docId"])
+    return final
+
+def remove_outliers_function(new_dataframe, pca):
+    labels = list(dict.fromkeys(new_dataframe['cluster']).keys())
+    deleted = []
+    for label in labels:
+        cluster_docs = new_dataframe.loc[new_dataframe['cluster'] == label]
+        cluster_doc_ids = cluster_docs.index.tolist()
+        # Deletes outliers from dataframe
+        if len(cluster_docs) == 1 or label == -1:
+            new_dataframe.drop(cluster_doc_ids, axis=0, inplace = True)
+            # saves deleted outliers
+            deleted.append(cluster_doc_ids)
+    # Deletes outliers from pca for silhouette score
+    pca = np.delete(pca, deleted, axis=0)
+    return new_dataframe, pca
+
+def compute_ground_truth(new_dataframe, eval_criteria_opt):
+    true_labels = []
+    for label in new_dataframe['cluster']:
+        cluster_docs = new_dataframe.loc[new_dataframe['cluster'] == label]
+        eval_criteria = cluster_docs['criteria']
+
+        if eval_criteria_opt == "1":
+            a = eval_criteria.to_numpy()
+            if (a[0] == a).all(): # all documents in cluster have the same topic
+                true_labels.append(label)
+            else:
+                true_labels.append(-2)
+
+        elif eval_criteria_opt == "2":
+            codes = list(eval_criteria)
+            result = set(codes[0])
+            [result.intersection_update(s) for s in codes[1:]]
+            if len(result) > 0: # all documents in cluster have at least one common category code
+                true_labels.append(label)
+            else:
+                true_labels.append(-2)
+    return true_labels
 
 
-def evaluate(D, pca_2d, clustering, dataframe):
+def evaluate(pca, clustering, dataframe, remove_outliers, external_flag, eval_criteria_opt = None):
     # @input document collection D (or topic collection Q), optional arguments on
     # clustering analysis
     # @behavior evaluates a solution produced by the introduced clustering function
     # @output clustering internal (and optionally external) criteria
+    final = {}
+    new_dataframe = dataframe.copy()
+    if remove_outliers == "t":
+        new_dataframe, pca = remove_outliers_function(new_dataframe, pca)
 
-    sil_score = silhouette_score(pca_2d, clustering.labels_, metric = 'cosine')
-    print('silhouette score = {}'.format(sil_score))
+    # The silhouette value is a measure of how similar an object is to its own cluster -> cohesion
+    sil_score = silhouette_score(pca, new_dataframe['cluster'], metric = 'cosine')
+    final['internal_criteria'] = sil_score
 
-    # true_labels = []
-    # for label in clustering.labels_:
-    #     cluster_docs = docs_cl.loc[docs_cl['cluster'] == label]
+    if external_flag == "t" and remove_outliers == "t":
+        true_labels = compute_ground_truth(new_dataframe, eval_criteria_opt)
 
-    # ar_score = adjusted_rand_score(clustering.labels_, pca_2d)
-    # print('adjusted rand score score = {}'.format(ar_score))
+        # Return clustering accuracy
+        accuracy = accuracy_score(true_labels, new_dataframe['cluster'])
+        # Return clusterong adjusted rand index
+        ar_score = adjusted_rand_score(true_labels, new_dataframe['cluster'])
+        # compute contingency matrix (also called confusion matrix)
+        contingency_matrix2 = contingency_matrix(true_labels, new_dataframe['cluster'])
+        # Find optimal one-to-one mapping between cluster labels and true labels
+        row_ind, col_ind = linear_sum_assignment(-contingency_matrix2)
+        # Return clustering purity
+        purity =  contingency_matrix2[row_ind, col_ind].sum() / np.sum(contingency_matrix2)
+        # Return clustering normalized mutual information
+        nmi = normalized_mutual_info_score(true_labels, new_dataframe['cluster'])
 
-    # # compute contingency matrix (also called confusion matrix)
-    # contingency_matrix = contingency_matrix(pca_2d, clustering.labels_)
-    # # return purity
-    # purity =  np.sum(np.amax(contingency_matrix, axis=0)) / np.sum(contingency_matrix) 
-    # print('purity score = {}'.format(purity))
+        final['external_criteria'] = {'accuracy': accuracy, 'adjusted_rand': ar_score, 'purity': purity, 'normalized_mutual_info': nmi}
 
-    exit(0)
+    return final
 
 #########################################################
 #                     Main   Code                       #
@@ -282,28 +257,83 @@ def evaluate(D, pca_2d, clustering, dataframe):
 
 # Just some input variable to run our experiments with the analyses.py file
 
-folders = os.listdir("rcv1/")
+print("Create cluster of topics or documents: \n")
+collect = input("1 - Topics; 2 - Documents: ")
 
-num_topics = [int(folder.replace("rcv1_rel", "")) for folder in folders]
+collection = []
 
-print(sorted(num_topics))
-topics = input("Pick number of topics: ")
+models = ["ap", "hdbscan", "agglomerative", "kmeans", "kmedoids"]
 
-q_topics_dict = read_topics_file()   # dictionary with topic id: topic(title, desc, narrative) ,for each topic
-q_rels_train_dict = red_qrels_file()  # dictionary with topic id: relevant document id ,for each topic
-
-D_PATH = "rcv1/rcv1_rel" + topics + "/"
-train_xmls, test_xmls = read_xml_files(D_PATH)
-
-models = ["ap", "hdbscan", "agglomerative", "kmeans", "kmedoids", "kmodes"]
-
-print("\n1- ap; \n2- hdbscan; \n3- agglomerative; \n4- kmeans; \n5-kmedoids; \n6- kmodes\n")
+print("\n1- ap; \n2- hdbscan; \n3- agglomerative; \n4- kmeans; \n5- kmedoids; \n")
 model = input("Pick a model (type a number): ")
 
-print("picked " + models[int(model)-1])
+if collect == "1":
+    q_topics_dict = read_topics_file()   # dictionary with topic id: topic(title, desc, narrative) ,for each topic
 
-if not os.path.isdir("clustering_plots"):
-    os.mkdir("clustering_plots")
-if not os.path.isdir("clustering_plots/topics_" + topics)
+    for topic in q_topics_dict.keys():
+        topic = q_topics_dict[topic]
+        topic_string = topic.title + ' ' + topic.desc + ' ' + topic.narr
+        topic_processed = preprocessing(topic_string) # preprocesses topic content
+        topic_sentences = ""
+        for token in topic_processed:
+            topic_sentences += " " + token
 
-clustering(train_xmls, models[int(model)-1])
+        collection.append(topic_sentences)
+
+    clustering_dataframe, model, pca, X, vectorizer = clustering(collection, models[int(model)-1], q_topics_dict)
+    external_flag = "f" # topics evaluation has no external criteria
+
+if collect == "2":
+    D_PATH = "rcv1/"
+    train_xmls, test_xmls, codes = read_xml_files(D_PATH)
+
+    q_rels_train_dict = red_qrels_file()  # dictionary with topic id: relevant document id ,for each topic
+
+    external_flag = input("\nAdd external criteria in evaluation: [t or f] ")
+
+    if external_flag == "t": # chooses evaluation criteria --> topics or category codes
+        eval_criteria_opt = input("\nEvaluate based on topics associated or category codes: [1 or 2] ")
+
+    eval_criteria =  {}
+    for doc in train_xmls.keys():
+        if external_flag == "t" and eval_criteria_opt == "1":
+            topics_assoc = [value for value in q_rels_train_dict.keys() if doc in q_rels_train_dict[value]]
+            #only evaluates doc with one associated topic
+            if len(topics_assoc) == 1:
+                eval_criteria[doc] = topics_assoc[0]
+                doc_sentences = ""
+                for token in train_xmls[doc]:
+                    doc_sentences += " " + token
+
+                collection.append(doc_sentences)
+
+        if external_flag == "f" or (external_flag == "t" and eval_criteria_opt == "2"):
+            eval_criteria[doc] = codes[doc]
+            doc_sentences = ""
+            for token in train_xmls[doc]:
+                doc_sentences += " " + token
+
+            collection.append(doc_sentences)
+    clustering_dataframe, model, pca, X, vectorizer = clustering(collection, models[int(model)-1], train_xmls, eval_criteria)
+
+interpret_criteria = input("\nSelect median or medoid or both criteria: [1 or 2 or 3] ")
+
+print("\n---------- INTERPRET ----------\n")
+labels = list(dict.fromkeys(clustering_dataframe['cluster']).keys())
+for i in labels:
+    print("Cluster %d:" % i)
+    cluster_docs = clustering_dataframe.loc[clustering_dataframe['cluster'] == i]
+    criteria = interpret(cluster_docs, pca, X, vectorizer, interpret_criteria)
+    print(criteria)
+
+print("\n---------- EVALUATE ----------\n")
+# only internal criteria
+if external_flag != "t":
+    # chooses to remove outliers or not
+    remove_outliers = input("\nRemove outliers for evaluation: [t or f] ")
+    criteria = evaluate(pca, model, clustering_dataframe, remove_outliers, external_flag)
+    print(criteria)
+else: # both criterias
+    # remove outliers for external criteria evaluation
+    criteria = evaluate(pca, model, clustering_dataframe, "t", external_flag, eval_criteria_opt)
+    print(criteria)
